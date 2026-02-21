@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Cloud Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; font-family: sans-serif; text-align: center; background: #f4f4f9; }
+        .panel { background: white; padding: 15px; margin: 10px auto; width: 90%; max-width: 500px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        button { padding: 10px; margin: 5px; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; color: white; }
+        .btn-mobile { background: #e74c3c; }
+        .btn-laptop { background: #3498db; }
+        #map { height: 60vh; width: 95%; margin: 10px auto; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <h2>☁️ Cloud Command Center</h2>
+    <div class="panel">
+        <p><strong>Step 1:</strong> Select which device you are currently holding so it can transmit its location to the cloud.</p>
+        <button class="btn-mobile" onclick="startTransmitting('Mobile')">📱 I am the Mobile</button>
+        <button class="btn-laptop" onclick="startTransmitting('Laptop')">💻 I am the Laptop</button>
+        <p id="status">Waiting to connect...</p>
+    </div>
+
+    <div id="map"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // ==========================================
+        // PASTE YOUR FIREBASE CONFIG HERE:
+        const firebaseConfig = {
+  apiKey: "AIzaSyAQJgJN-zhFVLfHmb_nchilnl7P7EO_mxQ",
+  authDomain: "device-tracker-f43d5.firebaseapp.com",
+  databaseURL: "https://device-tracker-f43d5-default-rtdb.firebaseio.com",
+  projectId: "device-tracker-f43d5",
+  storageBucket: "device-tracker-f43d5.firebasestorage.app",
+  messagingSenderId: "153076156970",
+  appId: "1:153076156970:web:d2eeb8e66ddfd4f9f61153",
+  measurementId: "G-EZHG4JEKT8"
+};
+        // ==========================================
+
+        // Start Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Setup the Map
+        var map = L.map('map').setView([18.5204, 73.8567], 10); // Default to Pune
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var markers = {};
+
+        // 1. TRANSMITTER: Send my location to Firebase
+        window.startTransmitting = function(deviceName) {
+            const status = document.getElementById('status');
+            if (navigator.geolocation) {
+                status.innerText = `Transmitting ${deviceName} location to cloud...`;
+                
+                // This constantly watches the GPS and sends updates!
+                navigator.geolocation.watchPosition((position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    
+                    // Save to Firebase Database!
+                    set(ref(db, 'devices/' + deviceName), {
+                        latitude: lat,
+                        longitude: lon,
+                        timestamp: Date.now()
+                    });
+                    status.innerText = `${deviceName} linked! Live tracking active.`;
+                }, (error) => {
+                    status.innerText = "Error: Please allow location access.";
+                }, { enableHighAccuracy: true });
+            }
+        };
+
+        // 2. COMMAND CENTER: Listen to Firebase for ANY device updates
+        const devicesRef = ref(db, 'devices');
+        onValue(devicesRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                // Loop through every device in the database
+                for (const [deviceName, coords] of Object.entries(data)) {
+                    // Remove old marker
+                    if (markers[deviceName]) { map.removeLayer(markers[deviceName]); }
+                    
+                    // Draw new marker
+                    markers[deviceName] = L.marker([coords.latitude, coords.longitude]).addTo(map)
+                        .bindPopup(`<b>${deviceName}</b>`)
+                        .openPopup();
+                        
+                    // Optional: Center map on the newest update
+                    map.setView([coords.latitude, coords.longitude], 16);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
