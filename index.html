@@ -1,33 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Live Cloud Tracker</title>
+    <title>Live Link Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; text-align: center; background: #f4f4f9; }
-        .panel { background: white; padding: 15px; margin: 10px auto; width: 90%; max-width: 500px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        button { padding: 10px; margin: 5px; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; color: white; }
-        .btn-mobile { background: #e74c3c; }
-        .btn-laptop { background: #3498db; }
-        #map { height: 60vh; width: 95%; margin: 10px auto; border-radius: 8px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; background: #f4f4f9; color: #333; }
+        #map { height: 65vh; width: 100%; margin-top: 10px; border-top: 3px solid #ccc; }
+        .panel { padding: 20px; background: white; margin: 15px auto; width: 90%; max-width: 500px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        button { padding: 12px 20px; background: #2ecc71; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; transition: 0.3s; }
+        button:hover { background: #27ae60; }
+        input { padding: 10px; width: 85%; margin-top: 10px; text-align: center; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; background: #eee; }
+        h2 { margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
-    <h2>☁️ Cloud Command Center</h2>
-    <div class="panel">
-        <p><strong>Step 1:</strong> Select which device you are currently holding so it can transmit its location to the cloud.</p>
-        <button class="btn-mobile" onclick="startTransmitting('Mobile')">📱 I am the Mobile</button>
-        <button class="btn-laptop" onclick="startTransmitting('Laptop')">💻 I am the Laptop</button>
-        <p id="status">Waiting to connect...</p>
+    <h2>📍 Live Location Sharer</h2>
+    <div class="panel" id="ui-panel">
+        <p id="status" style="font-weight: bold; color: #555;">Loading app...</p>
+        <div id="controls"></div>
     </div>
 
     <div id="map"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         // ==========================================
         // PASTE YOUR FIREBASE CONFIG HERE:
@@ -43,59 +42,94 @@
 };
         // ==========================================
 
-        // Start Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Setup the Map
-        var map = L.map('map').setView([18.5204, 73.8567], 10); // Default to Pune
+        // Setup Map
+        const map = L.map('map').setView([18.5204, 73.8567], 10);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        var markers = {};
+        const markers = {};
 
-        // 1. TRANSMITTER: Send my location to Firebase
-        window.startTransmitting = function(deviceName) {
-            const status = document.getElementById('status');
-            if (navigator.geolocation) {
-                status.innerText = `Transmitting ${deviceName} location to cloud...`;
+        // Check if we are joining a room via a link
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomID = urlParams.get('room');
+        
+        // Give this specific device a random ID so we don't overwrite each other
+        const myDeviceID = "Device_" + Math.floor(Math.random() * 10000);
+
+        const statusEl = document.getElementById('status');
+        const controlsEl = document.getElementById('controls');
+
+        // APP LOGIC
+        if (!roomID) {
+            // MODE 1: Create a tracking link
+            statusEl.innerText = "Create a secure room to track with someone.";
+            const btn = document.createElement('button');
+            btn.innerText = "🔗 Generate Tracking Link";
+            btn.onclick = () => {
+                // Create a random 6-letter room code
+                const newRoom = Math.random().toString(36).substring(2, 8);
+                const shareLink = window.location.href.split('?')[0] + "?room=" + newRoom;
                 
-                // This constantly watches the GPS and sends updates!
+                controlsEl.innerHTML = `
+                    <p>Copy and send this exact link to whoever you want to track:</p>
+                    <input type="text" value="${shareLink}" readonly onclick="this.select()">
+                    <button onclick="startTracking('${newRoom}')">📡 Start My Radar</button>
+                `;
+            };
+            controlsEl.appendChild(btn);
+        } else {
+            // MODE 2: Join an existing link
+            statusEl.innerText = "You have been invited to share your live location!";
+            const btn = document.createElement('button');
+            btn.innerText = "📍 Tap to Connect & Share";
+            btn.onclick = () => {
+                btn.style.display = 'none';
+                startTracking(roomID);
+            };
+            controlsEl.appendChild(btn);
+        }
+
+        // The Tracking Engine
+        window.startTracking = function(room) {
+            if (navigator.geolocation) {
+                statusEl.innerText = "Locating GPS (this can take up to 10 seconds)...";
+                
+                // Start pulling location
                 navigator.geolocation.watchPosition((position) => {
                     const lat = position.coords.latitude;
                     const lon = position.coords.longitude;
                     
-                    // Save to Firebase Database!
-                    set(ref(db, 'devices/' + deviceName), {
-                        latitude: lat,
-                        longitude: lon,
-                        timestamp: Date.now()
-                    });
-                    status.innerText = `${deviceName} linked! Live tracking active.`;
-                }, (error) => {
-                    status.innerText = "Error: Please allow location access.";
+                    // Push my location to Firebase into this specific room!
+                    const myRef = ref(db, `rooms/${room}/${myDeviceID}`);
+                    set(myRef, { lat: lat, lon: lon });
+                    
+                    // Auto-delete my pin if I close the web tab!
+                    onDisconnect(myRef).remove();
+
+                    statusEl.innerText = "✅ Live tracking active! Watching map...";
+                }, (err) => {
+                    statusEl.innerText = "❌ Error: Please allow location access in your browser.";
                 }, { enableHighAccuracy: true });
+
+                // Start watching Firebase for ANYONE else in this room
+                onValue(ref(db, `rooms/${room}`), (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        for (const [device, coords] of Object.entries(data)) {
+                            // If they already have a pin, remove it
+                            if (markers[device]) map.removeLayer(markers[device]);
+                            
+                            // Draw their new pin
+                            const isMe = (device === myDeviceID);
+                            markers[device] = L.marker([coords.lat, coords.lon]).addTo(map)
+                                .bindPopup(isMe ? "<b>You</b>" : "<b>Target Detected</b>")
+                                .openPopup();
+                        }
+                    }
+                });
             }
         };
-
-        // 2. COMMAND CENTER: Listen to Firebase for ANY device updates
-        const devicesRef = ref(db, 'devices');
-        onValue(devicesRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                // Loop through every device in the database
-                for (const [deviceName, coords] of Object.entries(data)) {
-                    // Remove old marker
-                    if (markers[deviceName]) { map.removeLayer(markers[deviceName]); }
-                    
-                    // Draw new marker
-                    markers[deviceName] = L.marker([coords.latitude, coords.longitude]).addTo(map)
-                        .bindPopup(`<b>${deviceName}</b>`)
-                        .openPopup();
-                        
-                    // Optional: Center map on the newest update
-                    map.setView([coords.latitude, coords.longitude], 16);
-                }
-            }
-        });
     </script>
 </body>
 </html>
