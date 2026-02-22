@@ -1,127 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Stealth Radar Pro</title>
+    <title>Live Radar Pro</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, sans-serif; 
-            text-align: center; 
-            margin: 0; 
-            /* Deep cinematic space background */
-            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); 
-            color: #ecf0f1; 
-            min-height: 100vh;
-        }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #0a0a0a; color: #ecf0f1; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
         
-        h2 { 
-            margin-top: 30px; 
-            font-weight: 300; 
-            letter-spacing: 3px; 
-            text-transform: uppercase; 
-        }
-        
-        /* The Glassmorphism Panel */
+        /* Fullscreen Map Background */
+        #map { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+
+        /* Floating UI Panel (Mobile App Style) */
         .panel { 
-            padding: 35px 25px; 
-            margin: 20px auto; 
-            width: 90%; 
-            max-width: 450px; 
-            border-radius: 20px; 
-            
-            /* Frosted Glass Effect */
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            position: absolute; 
+            bottom: 30px; 
+            left: 50%; 
+            transform: translateX(-50%);
+            width: 85%; 
+            max-width: 400px; 
+            z-index: 1000;
+            padding: 25px; 
+            border-radius: 24px; 
+            background: rgba(15, 20, 25, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 201, 255, 0.2);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            text-align: center;
         }
 
-        #map { 
-            height: 60vh; 
-            width: 90%; 
-            margin: 20px auto; 
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            display: none; 
-        }
-
-        button { 
-            padding: 15px 20px; 
-            border: none; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            font-size: 16px; 
-            font-weight: bold; 
-            width: 100%; 
-            margin-top: 15px; 
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* Glowing Neon Radar Button */
-        #generateBtn { 
-            background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
-            color: #111;
-            box-shadow: 0 4px 15px rgba(0, 201, 255, 0.3);
-        }
-        #generateBtn:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 6px 20px rgba(0, 201, 255, 0.6); 
-        }
+        h2 { margin: 0 0 10px 0; font-size: 18px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase; color: #00C9FF; }
         
-        /* Alert Red Target Button */
-        #shareBtn { 
-            background: linear-gradient(90deg, #F00000 0%, #DC281E 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(240, 0, 0, 0.3);
+        button { 
+            padding: 16px; border: none; border-radius: 14px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px;
         }
-        #shareBtn:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 6px 20px rgba(240, 0, 0, 0.6); 
-        }
+        #generateBtn { background: linear-gradient(90deg, #00C9FF 0%, #0072ff 100%); color: white; box-shadow: 0 4px 15px rgba(0, 201, 255, 0.4); }
+        #shareBtn { background: linear-gradient(90deg, #ff416c 0%, #ff4b2b 100%); color: white; box-shadow: 0 4px 15px rgba(255, 65, 108, 0.4); }
         
         input { 
-            padding: 15px; 
-            width: 85%; 
-            margin-top: 25px; 
-            text-align: center; 
-            font-size: 14px; 
-            border-radius: 8px; 
-            border: 1px solid rgba(255, 255, 255, 0.2); 
-            background: rgba(0, 0, 0, 0.3); 
-            color: #00C9FF; 
-            outline: none; 
-            letter-spacing: 1px;
+            padding: 14px; width: 85%; margin-top: 15px; text-align: center; font-size: 14px; border-radius: 10px; border: 1px solid rgba(0, 201, 255, 0.3); background: rgba(0, 0, 0, 0.6); color: #00C9FF; outline: none; 
         }
         
-        #status-text { 
-            color: #92FE9D; 
-            font-weight: bold; 
-            margin-top: 25px; 
-            font-size: 16px; 
-            letter-spacing: 1px; 
+        #status-text { color: #00C9FF; font-weight: bold; margin-top: 15px; font-size: 14px; letter-spacing: 1px;}
+        .diagnostic { font-size: 11px; color: rgba(255, 255, 255, 0.4); margin-top: 10px; font-family: monospace; }
+
+        /* THE MAGIC: Animated Pulsing Radar Marker */
+        .radar-blip {
+            width: 18px; height: 18px; background-color: #00C9FF; border-radius: 50%; position: relative; box-shadow: 0 0 15px #00C9FF;
         }
-        
-        .diagnostic { 
-            font-size: 12px; 
-            color: rgba(255, 255, 255, 0.3); 
-            margin-top: 15px; 
-            font-family: monospace; 
+        .radar-blip::after {
+            content: ''; position: absolute; top: -15px; left: -15px; right: -15px; bottom: -15px; border-radius: 50%; border: 2px solid #00C9FF; animation: pulse 1.5s ease-out infinite; opacity: 0;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.3); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
         }
     </style>
 </head>
 <body>
-    <h2>📡 Stealth Radar Pro</h2>
-    <div class="panel" id="ui-panel">
-        <div id="controls"></div>
-        <p id="status-text">System Ready.</p>
-        <p class="diagnostic" id="debug-log">Log: Waiting to start...</p>
-    </div>
     <div id="map"></div>
+    <div class="panel" id="ui-panel">
+        <h2>🛰️ Live Radar Pro</h2>
+        <div id="controls"></div>
+        <p id="status-text">System Initialization...</p>
+        <p class="diagnostic" id="debug-log">Log: Standby</p>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -143,23 +86,25 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        
         const urlParams = new URLSearchParams(window.location.search);
         const targetRoom = urlParams.get('target');
         
         const controls = document.getElementById('controls');
         const statusText = document.getElementById('status-text');
         const debugLog = document.getElementById('debug-log');
-        const mapDiv = document.getElementById('map');
         
-        let map, targetMarker;
+        // Render Dark Mode Cinematic Map Fullscreen
+        const map = L.map('map', { zoomControl: false }).setView([18.5204, 73.8567], 3); // Defaults zoomed out
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© CARTO'
+        }).addTo(map);
+
+        let targetMarker, accuracyCircle;
 
         if (!targetRoom) {
-            // ==========================================
-            // MODE 1: RADAR (Your Laptop)
-            // ==========================================
+            // MODE 1: RADAR COMMAND CENTER
             controls.innerHTML = `
-                <button id="generateBtn">🔗 Generate Tracking Link</button>
+                <button id="generateBtn">🔗 Generate Secure Link</button>
                 <div id="linkContainer" style="display:none;">
                     <input type="text" id="shareLink" readonly onclick="this.select()">
                 </div>
@@ -175,61 +120,70 @@
                 
                 navigator.clipboard.writeText(link).catch(e => console.log("Clipboard error"));
                 
-                statusText.innerText = "Waiting for Target to click link...";
-                debugLog.innerText = `Log: Listening to Room [${roomCode}]`;
-                
-                mapDiv.style.display = 'block';
-                map = L.map('map').setView([0, 0], 2);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                statusText.innerText = "Waiting for Target Connection...";
+                debugLog.innerText = `Log: Listening to channel [${roomCode}]`;
                 
                 onValue(ref(db, 'tracking/' + roomCode), (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
-                        statusText.innerText = "🚨 TARGET ACQUIRED! 🚨";
-                        statusText.style.color = "#2ecc71";
-                        debugLog.innerText = `Log: Data received! Lat: ${data.lat.toFixed(4)}, Lon: ${data.lon.toFixed(4)}`;
+                        statusText.innerText = "🎯 TARGET ACQUIRED & TRACKING";
+                        debugLog.innerText = `Acc: ±${Math.round(data.acc)} meters | Updated: live`;
                         
-                        if (targetMarker) map.removeLayer(targetMarker);
-                        targetMarker = L.marker([data.lat, data.lon]).addTo(map).bindPopup("<b>Target</b>").openPopup();
-                        map.setView([data.lat, data.lon], 16); 
+                        // Custom Glowing Blip
+                        const glowingBlip = L.divIcon({
+                            className: 'custom-icon',
+                            html: "<div class='radar-blip'></div>",
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9]
+                        });
+
+                        // Draw or move the Marker & Accuracy Ring
+                        if (targetMarker) {
+                            targetMarker.setLatLng([data.lat, data.lon]);
+                            accuracyCircle.setLatLng([data.lat, data.lon]);
+                            accuracyCircle.setRadius(data.acc);
+                        } else {
+                            targetMarker = L.marker([data.lat, data.lon], {icon: glowingBlip}).addTo(map);
+                            accuracyCircle = L.circle([data.lat, data.lon], {
+                                color: '#00C9FF', fillColor: '#00C9FF', fillOpacity: 0.1, radius: data.acc
+                            }).addTo(map);
+                        }
+                        
+                        // Smooth Cinematic Pan
+                        map.flyTo([data.lat, data.lon], 17, { animate: true, duration: 2.0 }); 
                     }
                 });
             };
         } else {
-            // ==========================================
-            // MODE 2: TARGET (Their Phone)
-            // ==========================================
-            controls.innerHTML = `<button id="shareBtn">📍 Share My Location</button>`;
-            statusText.innerText = `You are joining secure room.`;
-            debugLog.innerText = `Log: Room code [${targetRoom}]`;
+            // MODE 2: THE TARGET PHONE
+            controls.innerHTML = `<button id="shareBtn">📍 Broadcast Location</button>`;
+            statusText.innerText = `Encrypted Channel Ready`;
+            debugLog.innerText = `Log: Node [${targetRoom}]`;
             
             document.getElementById('shareBtn').onclick = () => {
-                statusText.innerText = "Requesting GPS permissions...";
-                debugLog.innerText = "Log: Waiting for user to click Allow...";
+                statusText.innerText = "Synchronizing GPS...";
                 document.getElementById('shareBtn').style.display = 'none';
                 
                 if (navigator.geolocation) {
                     navigator.geolocation.watchPosition((position) => {
-                        debugLog.innerText = "Log: GPS coordinates captured! Sending to Firebase...";
+                        debugLog.innerText = "Log: Broadcasting live data...";
                         
                         set(ref(db, 'tracking/' + targetRoom), { 
                             lat: position.coords.latitude, 
-                            lon: position.coords.longitude 
+                            lon: position.coords.longitude,
+                            acc: position.coords.accuracy 
                         }).then(() => {
-                            statusText.innerText = "✅ Location is securely transmitting!";
-                            statusText.style.color = "#2ecc71";
-                            debugLog.innerText = "Log: Successfully uploaded to cloud.";
+                            statusText.innerText = "🟢 TRANSMITTING LIVE";
                         }).catch((error) => {
-                            statusText.innerText = "❌ Database Error.";
-                            debugLog.innerText = `Log Error: ${error.message}`;
+                            statusText.innerText = "❌ Connection Dropped";
                         });
                         
+                        // Show where they are on their own screen too
+                        map.flyTo([position.coords.latitude, position.coords.longitude], 16, { animate: true });
+                        
                     }, (error) => {
-                        statusText.innerText = "❌ GPS Blocked or Failed.";
-                        debugLog.innerText = `Log Error: ${error.message}`;
+                        statusText.innerText = "❌ GPS Signal Lost";
                     }, { enableHighAccuracy: true });
-                } else {
-                    statusText.innerText = "GPS not supported.";
                 }
             };
         }
