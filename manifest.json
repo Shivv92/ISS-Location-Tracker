@@ -1,0 +1,16 @@
+{
+  "name": "Pro Radar System",
+  "short_name": "Pro Radar",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "description": "Global Live Tracking and Squad Radar",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1008/1008001.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
