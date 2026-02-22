@@ -5,15 +5,113 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; margin: 0; background: #2c3e50; color: white; }
-        #map { height: 70vh; width: 100%; display: none; margin-top: 15px; border-top: 4px solid #34495e; }
-        .panel { padding: 25px; background: #34495e; margin: 20px auto; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
-        button { padding: 15px 20px; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; margin-top: 10px; }
-        #generateBtn { background: #3498db; }
-        #shareBtn { background: #e74c3c; }
-        input { padding: 15px; width: 85%; margin-top: 15px; text-align: center; font-size: 14px; border-radius: 6px; border: none; background: #ecf0f1; color: #333; }
-        #status-text { color: #f1c40f; font-weight: bold; margin-top: 20px; font-size: 16px; }
-        .diagnostic { font-size: 12px; color: #bdc3c7; margin-top: 10px; font-family: monospace; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            /* Deep cinematic space background */
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); 
+            color: #ecf0f1; 
+            min-height: 100vh;
+        }
+        
+        h2 { 
+            margin-top: 30px; 
+            font-weight: 300; 
+            letter-spacing: 3px; 
+            text-transform: uppercase; 
+        }
+        
+        /* The Glassmorphism Panel */
+        .panel { 
+            padding: 35px 25px; 
+            margin: 20px auto; 
+            width: 90%; 
+            max-width: 450px; 
+            border-radius: 20px; 
+            
+            /* Frosted Glass Effect */
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        #map { 
+            height: 60vh; 
+            width: 90%; 
+            margin: 20px auto; 
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            display: none; 
+        }
+
+        button { 
+            padding: 15px 20px; 
+            border: none; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: bold; 
+            width: 100%; 
+            margin-top: 15px; 
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Glowing Neon Radar Button */
+        #generateBtn { 
+            background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
+            color: #111;
+            box-shadow: 0 4px 15px rgba(0, 201, 255, 0.3);
+        }
+        #generateBtn:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(0, 201, 255, 0.6); 
+        }
+        
+        /* Alert Red Target Button */
+        #shareBtn { 
+            background: linear-gradient(90deg, #F00000 0%, #DC281E 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(240, 0, 0, 0.3);
+        }
+        #shareBtn:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(240, 0, 0, 0.6); 
+        }
+        
+        input { 
+            padding: 15px; 
+            width: 85%; 
+            margin-top: 25px; 
+            text-align: center; 
+            font-size: 14px; 
+            border-radius: 8px; 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            background: rgba(0, 0, 0, 0.3); 
+            color: #00C9FF; 
+            outline: none; 
+            letter-spacing: 1px;
+        }
+        
+        #status-text { 
+            color: #92FE9D; 
+            font-weight: bold; 
+            margin-top: 25px; 
+            font-size: 16px; 
+            letter-spacing: 1px; 
+        }
+        
+        .diagnostic { 
+            font-size: 12px; 
+            color: rgba(255, 255, 255, 0.3); 
+            margin-top: 15px; 
+            font-family: monospace; 
+        }
     </style>
 </head>
 <body>
