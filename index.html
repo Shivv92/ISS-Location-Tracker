@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>Pro Radar - Global Tracking System</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0a0a0a">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="manifest" href="manifest.json">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* NEW: Locked dimensions for perfect mobile fit */
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0a0a0a; color: #ecf0f1; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; touch-action: none; }
         #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; z-index: 1; }
         
@@ -20,6 +20,11 @@
         h2 { margin: 0 0 10px 0; font-size: 18px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase; color: #00C9FF; }
         
         button { padding: 14px; border: none; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* The Custom Install Button */
+        #installBtn { display: none; background: linear-gradient(90deg, #f1c40f 0%, #e67e22 100%); color: #111; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(241, 196, 15, 0.4); }
+        #installBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(241, 196, 15, 0.6); }
+
         #generateBtn { background: linear-gradient(90deg, #00C9FF 0%, #0072ff 100%); color: white; }
         #shareBtn { background: linear-gradient(90deg, #ff416c 0%, #ff4b2b 100%); color: white; }
         
@@ -45,6 +50,7 @@
     
     <div class="panel" id="ui-panel">
         <h2>🛰️ Pro Radar System</h2>
+        <button id="installBtn">📲 Install Pro Radar App</button>
         <div id="controls"></div>
         <p id="status-text">System Initialization...</p>
         <p class="diagnostic" id="debug-log">Log: Standby</p>
@@ -92,13 +98,12 @@
             radarSweep.style.display = (radarSweep.style.display === 'block') ? 'none' : 'block';
         };
 
-        // --- NEW: EXPLICIT SPACE MODE BUTTON LOGIC ---
         window.focusISS = function() {
             if (issMarker) {
                 const pos = issMarker.getLatLng();
                 map.flyTo(pos, 5, { animate: true, duration: 2.0 });
                 statusText.innerText = "🛰️ SPACE MODE ACTIVATED";
-                statusText.style.color = "#f39c12"; // Changes to alert orange
+                statusText.style.color = "#f39c12"; 
                 radarSweep.style.display = 'block';
             } else {
                 statusText.innerText = "Acquiring Space Signal...";
@@ -107,34 +112,23 @@
 
         let issMarker;
         const issIcon = L.divIcon({
-            className: 'custom-icon',
-            html: "<div style='font-size: 28px; filter: drop-shadow(0px 0px 8px #f39c12);'>🛰️</div>",
-            iconSize: [30, 30], iconAnchor: [15, 15]
+            className: 'custom-icon', html: "<div style='font-size: 28px; filter: drop-shadow(0px 0px 8px #f39c12);'>🛰️</div>", iconSize: [30, 30], iconAnchor: [15, 15]
         });
 
         async function fetchISS() {
             try {
                 const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
                 const data = await response.json();
-                const lat = data.latitude;
-                const lon = data.longitude;
-                const vel = Math.round(data.velocity);
-                const alt = Math.round(data.altitude);
-
                 if (issMarker) {
-                    issMarker.setLatLng([lat, lon]);
-                    issMarker.setTooltipContent(`<b>ISS LIVE</b><br>Speed: ${vel} km/h<br>Alt: ${alt} km`);
+                    issMarker.setLatLng([data.latitude, data.longitude]);
+                    issMarker.setTooltipContent(`<b>ISS LIVE</b><br>Speed: ${Math.round(data.velocity)} km/h<br>Alt: ${Math.round(data.altitude)} km`);
                 } else {
-                    issMarker = L.marker([lat, lon], {icon: issIcon}).addTo(map);
-                    issMarker.bindTooltip(`<b>ISS LIVE</b><br>Speed: ${vel} km/h<br>Alt: ${alt} km`, { permanent: true, direction: 'right', className: 'iss-tooltip' }).openTooltip();
+                    issMarker = L.marker([data.latitude, data.longitude], {icon: issIcon}).addTo(map);
+                    issMarker.bindTooltip(`<b>ISS LIVE</b><br>Speed: ${Math.round(data.velocity)} km/h<br>Alt: ${Math.round(data.altitude)} km`, { permanent: true, direction: 'right', className: 'iss-tooltip' }).openTooltip();
                 }
-            } catch (error) {
-                console.log("ISS API Error", error);
-            }
+            } catch (error) { console.log("ISS Error", error); }
         }
-        
-        fetchISS();
-        setInterval(fetchISS, 3000);
+        fetchISS(); setInterval(fetchISS, 3000);
 
         let squadMarkers = {};
         let squadCircles = {};
@@ -161,21 +155,15 @@
                 navigator.clipboard.writeText(link).catch(e => console.log("Clipboard error"));
                 
                 statusText.innerText = "Waiting for Squad...";
-                statusText.style.color = "#00C9FF"; 
-
                 onValue(ref(db, 'tracking/' + roomCode), (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
-                        const squadSize = Object.keys(data).length;
-                        statusText.innerText = `🎯 SQUAD MODE: ${squadSize} ONLINE`;
-                        statusText.style.color = "#00C9FF";
-                        
+                        statusText.innerText = `🎯 SQUAD MODE: ${Object.keys(data).length} ONLINE`;
                         const glowingBlip = L.divIcon({ className: 'custom-icon', html: "<div class='radar-blip'></div>", iconSize: [18, 18], iconAnchor: [9, 9] });
 
                         for (const [deviceId, targetData] of Object.entries(data)) {
                             if (targetData.lat != null && targetData.lon != null) {
                                 const safeAcc = targetData.acc || 20;
-
                                 if (squadMarkers[deviceId]) {
                                     squadMarkers[deviceId].setLatLng([targetData.lat, targetData.lon]);
                                     squadCircles[deviceId].setLatLng([targetData.lat, targetData.lon]);
@@ -196,7 +184,6 @@
                 <button id="shareBtn">📍 Broadcast Location</button>
             `;
             statusText.innerText = `Encrypted Channel Ready`;
-            
             const myDeviceId = "device_" + Math.random().toString(36).substring(2, 9);
             
             document.getElementById('shareBtn').onclick = () => {
@@ -220,14 +207,48 @@
                 }
             };
         }
-    </script> <script>
-        // Register the Service Worker
+    </script>
+
+    <script>
+        // 1. Register the Service Worker (Required for PWA)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then((reg) => console.log('Service Worker Registered!', reg))
-                    .catch((err) => console.log('Service Worker Failed!', err));
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Failed', err));
             });
+        }
+
+        // 2. Custom Install Button Logic
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); // Stop Chrome's default mini-bar
+            deferredPrompt = e;
+            installBtn.style.display = 'block'; // Unhide our gold button
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt !== null) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installBtn.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        // 3. Apple iOS Warning (Apple blocks custom buttons)
+        const isIos = () => {
+            const userAgent = window.navigator.userAgent.toLowerCase();
+            return /iphone|ipad|ipod/.test(userAgent);
+        };
+        const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
+        
+        if (isIos() && !isInStandaloneMode()) {
+            const statusText = document.getElementById('status-text');
+            statusText.innerText = "🍎 iPhone User: Tap 'Share' below, then 'Add to Home Screen' to install.";
+            statusText.style.color = "#f39c12";
         }
     </script>
 </body>
