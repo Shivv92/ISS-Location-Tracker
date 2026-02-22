@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Pro Radar - Global Tracking System</title>
+    <title>Global Space Intelligence Radar</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0a0a">
@@ -16,22 +16,24 @@
         .radar-sweep { position: absolute; top: 50%; left: 50%; width: 150vmax; height: 150vmax; transform: translate(-50%, -50%); background: conic-gradient(from 0deg, transparent 70%, rgba(0, 201, 255, 0.1) 90%, rgba(0, 201, 255, 0.5) 100%); border-radius: 50%; pointer-events: none; z-index: 500; animation: sweep 4s linear infinite; display: none; }
         @keyframes sweep { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
 
+        /* NEW: LIVE TELEMETRY PANEL */
+        .telemetry-panel { position: absolute; top: 20px; right: 20px; z-index: 1000; width: 200px; background: rgba(10, 15, 20, 0.85); border: 1px solid rgba(243, 156, 18, 0.4); border-radius: 12px; padding: 15px; box-shadow: 0 4px 15px rgba(243, 156, 18, 0.2); font-family: monospace; color: #00C9FF; display: none; backdrop-filter: blur(10px); }
+        .telemetry-panel h3 { margin: 0 0 10px 0; color: #f39c12; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+        .data-row span:first-child { color: rgba(255,255,255,0.5); }
+        .tel-val { font-weight: bold; }
+
         .panel { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 400px; z-index: 1000; padding: 25px; border-radius: 24px; background: rgba(15, 20, 25, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(0, 201, 255, 0.3); box-shadow: 0 15px 35px rgba(0,0,0,0.8); text-align: center; }
         h2 { margin: 0 0 10px 0; font-size: 18px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase; color: #00C9FF; }
         
         button { padding: 14px; border: none; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
-        
-        /* The Custom Install Button */
-        #installBtn { display: none; background: linear-gradient(90deg, #f1c40f 0%, #e67e22 100%); color: #111; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(241, 196, 15, 0.4); }
-        #installBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(241, 196, 15, 0.6); }
-
+        #installBtn { display: none; background: linear-gradient(90deg, #f1c40f 0%, #e67e22 100%); color: #111; margin-bottom: 15px; }
         #generateBtn { background: linear-gradient(90deg, #00C9FF 0%, #0072ff 100%); color: white; }
         #shareBtn { background: linear-gradient(90deg, #ff416c 0%, #ff4b2b 100%); color: white; }
         
         .controls-row { display: flex; gap: 8px; margin-top: 10px; }
         .small-btn { background: rgba(255,255,255,0.1); color: #00C9FF; border: 1px solid rgba(0, 201, 255, 0.3); font-size: 12px; padding: 10px; flex: 1; }
-        .small-btn:hover { background: rgba(0, 201, 255, 0.2); }
-
+        
         input { padding: 14px; width: 85%; margin-top: 10px; margin-bottom: 5px; text-align: center; font-size: 14px; border-radius: 10px; border: 1px solid rgba(0, 201, 255, 0.3); background: rgba(0, 0, 0, 0.6); color: #00C9FF; outline: none; }
         #status-text { color: #00C9FF; font-weight: bold; margin-top: 15px; font-size: 14px; letter-spacing: 1px;}
         .diagnostic { font-size: 11px; color: rgba(255, 255, 255, 0.4); margin-top: 10px; font-family: monospace; }
@@ -39,15 +41,23 @@
         .radar-blip { width: 18px; height: 18px; background-color: #00C9FF; border-radius: 50%; position: relative; box-shadow: 0 0 15px #00C9FF; }
         .radar-blip::after { content: ''; position: absolute; top: -15px; left: -15px; right: -15px; bottom: -15px; border-radius: 50%; border: 2px solid #00C9FF; animation: pulse 1.5s ease-out infinite; opacity: 0; }
         @keyframes pulse { 0% { transform: scale(0.3); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
-        
-        .leaflet-tooltip.custom-tooltip { background: rgba(15, 20, 25, 0.9); border: 1px solid #00C9FF; color: #00C9FF; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 15px rgba(0, 201, 255, 0.3); }
-        .iss-tooltip { background: rgba(15, 20, 25, 0.9); border: 1px solid #f39c12; color: #f39c12; border-radius: 8px; font-weight: bold; font-size: 12px; }
+        .leaflet-tooltip.custom-tooltip { background: rgba(15, 20, 25, 0.9); border: 1px solid #00C9FF; color: #00C9FF; border-radius: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <div class="radar-sweep" id="radarSweep"></div>
     
+    <div class="telemetry-panel" id="telemetryPanel">
+        <h3>📡 Telemetry Uplink</h3>
+        <div class="data-row"><span>SYS HEALTH:</span> <span class="tel-val" id="tel-status" style="color: #2ecc71;">STANDBY</span></div>
+        <div class="data-row"><span>VELOCITY:</span> <span class="tel-val" id="tel-vel">--</span></div>
+        <div class="data-row"><span>ALTITUDE:</span> <span class="tel-val" id="tel-alt">--</span></div>
+        <div class="data-row"><span>LATITUDE:</span> <span class="tel-val" id="tel-lat">--</span></div>
+        <div class="data-row"><span>LONGITUDE:</span> <span class="tel-val" id="tel-lon">--</span></div>
+        <div class="data-row"><span>LAST PING:</span> <span class="tel-val" id="tel-time">--</span></div>
+    </div>
+
     <div class="panel" id="ui-panel">
         <h2>🛰️ Pro Radar System</h2>
         <button id="installBtn">📲 Install Pro Radar App</button>
@@ -80,7 +90,7 @@
         
         const controls = document.getElementById('controls');
         const statusText = document.getElementById('status-text');
-        const debugLog = document.getElementById('debug-log');
+        const telemetryPanel = document.getElementById('telemetryPanel');
         const radarSweep = document.getElementById('radarSweep');
         
         const map = L.map('map', { zoomControl: false }).setView([18.5204, 73.8567], 3);
@@ -100,34 +110,49 @@
 
         window.focusISS = function() {
             if (issMarker) {
-                const pos = issMarker.getLatLng();
-                map.flyTo(pos, 5, { animate: true, duration: 2.0 });
+                map.flyTo(issMarker.getLatLng(), 5, { animate: true, duration: 2.0 });
                 statusText.innerText = "🛰️ SPACE MODE ACTIVATED";
                 statusText.style.color = "#f39c12"; 
                 radarSweep.style.display = 'block';
-            } else {
-                statusText.innerText = "Acquiring Space Signal...";
+                telemetryPanel.style.display = 'block'; // Show panel!
             }
         };
 
         let issMarker;
-        const issIcon = L.divIcon({
-            className: 'custom-icon', html: "<div style='font-size: 28px; filter: drop-shadow(0px 0px 8px #f39c12);'>🛰️</div>", iconSize: [30, 30], iconAnchor: [15, 15]
-        });
+        const issIcon = L.divIcon({ className: 'custom-icon', html: "<div style='font-size: 28px; filter: drop-shadow(0px 0px 8px #f39c12);'>🛰️</div>", iconSize: [30, 30], iconAnchor: [15, 15] });
 
+        // NEW: AJAX FETCH FROM YOUR PYTHON FLASK SERVER
         async function fetchISS() {
             try {
-                const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                // Pointing to your Local Python Brain
+                const response = await fetch('http://127.0.0.1:5000/api/radar/iss');
                 const data = await response.json();
+                
+                // Update Map
                 if (issMarker) {
                     issMarker.setLatLng([data.latitude, data.longitude]);
-                    issMarker.setTooltipContent(`<b>ISS LIVE</b><br>Speed: ${Math.round(data.velocity)} km/h<br>Alt: ${Math.round(data.altitude)} km`);
                 } else {
                     issMarker = L.marker([data.latitude, data.longitude], {icon: issIcon}).addTo(map);
-                    issMarker.bindTooltip(`<b>ISS LIVE</b><br>Speed: ${Math.round(data.velocity)} km/h<br>Alt: ${Math.round(data.altitude)} km`, { permanent: true, direction: 'right', className: 'iss-tooltip' }).openTooltip();
                 }
-            } catch (error) { console.log("ISS Error", error); }
+
+                // Update Telemetry Panel
+                document.getElementById('tel-status').innerText = data.system_health;
+                document.getElementById('tel-status').style.color = "#2ecc71";
+                document.getElementById('tel-vel').innerText = `${data.velocity_kmh} km/h`;
+                document.getElementById('tel-alt').innerText = `${data.altitude_km} km`;
+                document.getElementById('tel-lat').innerText = data.latitude.toFixed(4);
+                document.getElementById('tel-lon').innerText = data.longitude.toFixed(4);
+                
+                // Extract just the time from your Python timestamp
+                const timeOnly = data.timestamp.split(' ')[1]; 
+                document.getElementById('tel-time').innerText = timeOnly;
+
+            } catch (error) { 
+                document.getElementById('tel-status').innerText = "LINK FAILED";
+                document.getElementById('tel-status').style.color = "#e74c3c";
+            }
         }
+        
         fetchISS(); setInterval(fetchISS, 3000);
 
         let squadMarkers = {};
@@ -152,7 +177,6 @@
                 document.getElementById('shareLink').value = link;
                 document.getElementById('linkContainer').style.display = 'block';
                 document.getElementById('generateBtn').style.display = 'none';
-                navigator.clipboard.writeText(link).catch(e => console.log("Clipboard error"));
                 
                 statusText.innerText = "Waiting for Squad...";
                 onValue(ref(db, 'tracking/' + roomCode), (snapshot) => {
@@ -201,54 +225,9 @@
 
                         onDisconnect(myRef).remove();
                         map.setView([position.coords.latitude, position.coords.longitude], 16);
-                    }, (error) => {
-                        statusText.innerText = "❌ GPS Signal Lost";
-                    }, { enableHighAccuracy: true });
+                    }, (error) => {}, { enableHighAccuracy: true });
                 }
             };
-        }
-    </script>
-
-    <script>
-        // 1. Register the Service Worker (Required for PWA)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Failed', err));
-            });
-        }
-
-        // 2. Custom Install Button Logic
-        let deferredPrompt;
-        const installBtn = document.getElementById('installBtn');
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault(); // Stop Chrome's default mini-bar
-            deferredPrompt = e;
-            installBtn.style.display = 'block'; // Unhide our gold button
-        });
-
-        installBtn.addEventListener('click', async () => {
-            if (deferredPrompt !== null) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    installBtn.style.display = 'none';
-                }
-                deferredPrompt = null;
-            }
-        });
-
-        // 3. Apple iOS Warning (Apple blocks custom buttons)
-        const isIos = () => {
-            const userAgent = window.navigator.userAgent.toLowerCase();
-            return /iphone|ipad|ipod/.test(userAgent);
-        };
-        const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
-        
-        if (isIos() && !isInStandaloneMode()) {
-            const statusText = document.getElementById('status-text');
-            statusText.innerText = "🍎 iPhone User: Tap 'Share' below, then 'Add to Home Screen' to install.";
-            statusText.style.color = "#f39c12";
         }
     </script>
 </body>
