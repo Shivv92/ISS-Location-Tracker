@@ -1,31 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Live Radar Pro - Squad Edition</title>
+    <title>Pro Radar - Global Tracking System</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #0a0a0a; color: #ecf0f1; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
         #map { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        .panel { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 400px; z-index: 1000; padding: 25px; border-radius: 24px; background: rgba(15, 20, 25, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(0, 201, 255, 0.2); box-shadow: 0 15px 35px rgba(0,0,0,0.6); text-align: center; }
+        
+        /* 🚨 THE PRO RADAR SWEEP ANIMATION 🚨 */
+        .radar-sweep {
+            position: absolute; top: 50%; left: 50%; width: 150vmax; height: 150vmax;
+            transform: translate(-50%, -50%);
+            background: conic-gradient(from 0deg, transparent 70%, rgba(0, 201, 255, 0.1) 90%, rgba(0, 201, 255, 0.5) 100%);
+            border-radius: 50%; pointer-events: none; z-index: 500;
+            animation: sweep 4s linear infinite; display: none; /* Hidden until activated */
+        }
+        @keyframes sweep { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+
+        /* Floating UI Panel */
+        .panel { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 400px; z-index: 1000; padding: 25px; border-radius: 24px; background: rgba(15, 20, 25, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(0, 201, 255, 0.3); box-shadow: 0 15px 35px rgba(0,0,0,0.8); text-align: center; }
         h2 { margin: 0 0 10px 0; font-size: 18px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase; color: #00C9FF; }
-        button { padding: 16px; border: none; border-radius: 14px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        
+        button { padding: 14px; border: none; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
         #generateBtn { background: linear-gradient(90deg, #00C9FF 0%, #0072ff 100%); color: white; }
         #shareBtn { background: linear-gradient(90deg, #ff416c 0%, #ff4b2b 100%); color: white; }
+        
+        /* New UI Buttons for Map Controls */
+        .controls-row { display: flex; gap: 10px; margin-top: 10px; }
+        .small-btn { background: rgba(255,255,255,0.1); color: #00C9FF; border: 1px solid rgba(0, 201, 255, 0.3); }
+        .small-btn:hover { background: rgba(0, 201, 255, 0.2); }
+
         input { padding: 14px; width: 85%; margin-top: 10px; margin-bottom: 5px; text-align: center; font-size: 14px; border-radius: 10px; border: 1px solid rgba(0, 201, 255, 0.3); background: rgba(0, 0, 0, 0.6); color: #00C9FF; outline: none; }
         #status-text { color: #00C9FF; font-weight: bold; margin-top: 15px; font-size: 14px; letter-spacing: 1px;}
         .diagnostic { font-size: 11px; color: rgba(255, 255, 255, 0.4); margin-top: 10px; font-family: monospace; }
+        
         .radar-blip { width: 18px; height: 18px; background-color: #00C9FF; border-radius: 50%; position: relative; box-shadow: 0 0 15px #00C9FF; }
         .radar-blip::after { content: ''; position: absolute; top: -15px; left: -15px; right: -15px; bottom: -15px; border-radius: 50%; border: 2px solid #00C9FF; animation: pulse 1.5s ease-out infinite; opacity: 0; }
         @keyframes pulse { 0% { transform: scale(0.3); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
         .leaflet-tooltip.custom-tooltip { background: rgba(15, 20, 25, 0.9); border: 1px solid #00C9FF; color: #00C9FF; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 15px rgba(0, 201, 255, 0.3); }
-        .leaflet-tooltip-top:before { border-top-color: #00C9FF; }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="panel" id="ui-panel">
-        <h2>🛰️ Squad Radar</h2>
+    <div class="radar-sweep" id="radarSweep"></div> <div class="panel" id="ui-panel">
+        <h2>🛰️ Pro Radar System</h2>
         <div id="controls"></div>
         <p id="status-text">System Initialization...</p>
         <p class="diagnostic" id="debug-log">Log: Standby</p>
@@ -56,9 +75,27 @@
         const controls = document.getElementById('controls');
         const statusText = document.getElementById('status-text');
         const debugLog = document.getElementById('debug-log');
+        const radarSweep = document.getElementById('radarSweep');
         
+        // --- MAP SYSTEM WITH TOGGLE ---
         const map = L.map('map', { zoomControl: false }).setView([18.5204, 73.8567], 3);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' }).addTo(map);
+        
+        const darkTheme = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
+        const satTheme = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
+        
+        darkTheme.addTo(map); // Default to dark mode
+        let isDark = true;
+
+        window.toggleMap = function() {
+            if (isDark) { map.removeLayer(darkTheme); satTheme.addTo(map); } 
+            else { map.removeLayer(satTheme); darkTheme.addTo(map); }
+            isDark = !isDark;
+        };
+
+        window.toggleRadar = function() {
+            radarSweep.style.display = (radarSweep.style.display === 'block') ? 'none' : 'block';
+        };
+        // ------------------------------
 
         let squadMarkers = {};
         let squadCircles = {};
@@ -66,7 +103,11 @@
         if (!targetRoom) {
             // MODE 1: RADAR COMMAND CENTER
             controls.innerHTML = `
-                <button id="generateBtn">🔗 Generate Squad Link</button>
+                <button id="generateBtn">🔗 Create Secure Room</button>
+                <div class="controls-row">
+                    <button class="small-btn" onclick="toggleMap()">🌍 Map Mode</button>
+                    <button class="small-btn" onclick="toggleRadar()">📡 Sweep</button>
+                </div>
                 <div id="linkContainer" style="display:none;">
                     <input type="text" id="shareLink" readonly onclick="this.select()">
                 </div>
@@ -84,6 +125,8 @@
                 statusText.innerText = "Waiting for Squad to Connect...";
                 debugLog.innerText = `Log: Secure Room [${roomCode}]`;
                 
+                radarSweep.style.display = 'block'; // Auto-turn on radar sweep when room created
+
                 onValue(ref(db, 'tracking/' + roomCode), (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
@@ -94,9 +137,8 @@
                         const glowingBlip = L.divIcon({ className: 'custom-icon', html: "<div class='radar-blip'></div>", iconSize: [18, 18], iconAnchor: [9, 9] });
 
                         for (const [deviceId, targetData] of Object.entries(data)) {
-                            // SAFETY CHECK: Only draw if we actually have latitude and longitude
                             if (targetData.lat != null && targetData.lon != null) {
-                                const safeAcc = targetData.acc || 20; // Fallback to prevent crash
+                                const safeAcc = targetData.acc || 20;
 
                                 if (squadMarkers[deviceId]) {
                                     squadMarkers[deviceId].setLatLng([targetData.lat, targetData.lon]);
@@ -108,12 +150,6 @@
                                     squadCircles[deviceId] = L.circle([targetData.lat, targetData.lon], { color: '#00C9FF', fillColor: '#00C9FF', fillOpacity: 0.1, radius: safeAcc }).addTo(map);
                                 }
                             }
-                        }
-                        
-                        // SAFETY CHECK: Only try to fit bounds if there is actually a marker on the map
-                        if (Object.keys(squadMarkers).length > 0) {
-                            const group = new L.featureGroup(Object.values(squadMarkers));
-                            map.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 16 });
                         }
                     }
                 });
@@ -138,14 +174,14 @@
                 if (navigator.geolocation) {
                     navigator.geolocation.watchPosition((position) => {
                         debugLog.innerText = "Log: Broadcasting live data...";
-                        const safeAcc = position.coords.accuracy || 20; // Fallback to prevent crash
+                        const safeAcc = position.coords.accuracy || 20;
                         
                         const myRef = ref(db, `tracking/${targetRoom}/${myDeviceId}`);
                         set(myRef, { name: myName, lat: position.coords.latitude, lon: position.coords.longitude, acc: safeAcc })
                         .then(() => { statusText.innerText = `🟢 TRANSMITTING AS: ${myName.toUpperCase()}`; });
 
                         onDisconnect(myRef).remove();
-                        map.setView([position.coords.latitude, position.coords.longitude], 16); // Switched to safer setView
+                        map.setView([position.coords.latitude, position.coords.longitude], 16);
                     }, (error) => {
                         statusText.innerText = "❌ GPS Signal Lost";
                     }, { enableHighAccuracy: true });
