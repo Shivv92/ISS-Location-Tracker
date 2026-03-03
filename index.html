@@ -16,7 +16,6 @@
         .radar-sweep { position: absolute; top: 50%; left: 50%; width: 150vmax; height: 150vmax; transform: translate(-50%, -50%); background: conic-gradient(from 0deg, transparent 70%, rgba(0, 201, 255, 0.1) 90%, rgba(0, 201, 255, 0.5) 100%); border-radius: 50%; pointer-events: none; z-index: 500; animation: sweep 4s linear infinite; display: none; }
         @keyframes sweep { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
 
-        /* NEW: LIVE TELEMETRY PANEL */
         .telemetry-panel { position: absolute; top: 20px; right: 20px; z-index: 1000; width: 200px; background: rgba(10, 15, 20, 0.85); border: 1px solid rgba(243, 156, 18, 0.4); border-radius: 12px; padding: 15px; box-shadow: 0 4px 15px rgba(243, 156, 18, 0.2); font-family: monospace; color: #00C9FF; display: none; backdrop-filter: blur(10px); }
         .telemetry-panel h3 { margin: 0 0 10px 0; color: #f39c12; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
         .data-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
@@ -55,7 +54,6 @@
         <div class="data-row"><span>ALTITUDE:</span> <span class="tel-val" id="tel-alt">--</span></div>
         <div class="data-row"><span>LATITUDE:</span> <span class="tel-val" id="tel-lat">--</span></div>
         <div class="data-row"><span>LONGITUDE:</span> <span class="tel-val" id="tel-lon">--</span></div>
-        <div class="data-row"><span>LAST PING:</span> <span class="tel-val" id="tel-time">--</span></div>
     </div>
 
     <div class="panel" id="ui-panel">
@@ -114,49 +112,36 @@
                 statusText.innerText = "🛰️ SPACE MODE ACTIVATED";
                 statusText.style.color = "#f39c12"; 
                 radarSweep.style.display = 'block';
-                telemetryPanel.style.display = 'block'; // Show panel!
+                telemetryPanel.style.display = 'block';
             }
         };
 
         let issMarker;
         const issIcon = L.divIcon({ className: 'custom-icon', html: "<div style='font-size: 28px; filter: drop-shadow(0px 0px 8px #f39c12);'>🛰️</div>", iconSize: [30, 30], iconAnchor: [15, 15] });
 
-        // NEW: AJAX FETCH FROM YOUR PYTHON FLASK SERVER
+        // REVERTED TO PUBLIC API TO FIX THE CRASH
         async function fetchISS() {
             try {
-                // Pointing to your Local Python Brain
-                const response = await fetch('http://127.0.0.1:5000/api/radar/iss');
+                const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
                 const data = await response.json();
                 
-                // Update Map
-                if (issMarker) {
-                    issMarker.setLatLng([data.latitude, data.longitude]);
-                } else {
-                    issMarker = L.marker([data.latitude, data.longitude], {icon: issIcon}).addTo(map);
-                }
+                if (issMarker) { issMarker.setLatLng([data.latitude, data.longitude]); } 
+                else { issMarker = L.marker([data.latitude, data.longitude], {icon: issIcon}).addTo(map); }
 
-                // Update Telemetry Panel
-                document.getElementById('tel-status').innerText = data.system_health;
+                document.getElementById('tel-status').innerText = "OPTIMAL";
                 document.getElementById('tel-status').style.color = "#2ecc71";
-                document.getElementById('tel-vel').innerText = `${data.velocity_kmh} km/h`;
-                document.getElementById('tel-alt').innerText = `${data.altitude_km} km`;
+                document.getElementById('tel-vel').innerText = `${Math.round(data.velocity)} km/h`;
+                document.getElementById('tel-alt').innerText = `${Math.round(data.altitude)} km`;
                 document.getElementById('tel-lat').innerText = data.latitude.toFixed(4);
                 document.getElementById('tel-lon').innerText = data.longitude.toFixed(4);
-                
-                // Extract just the time from your Python timestamp
-                const timeOnly = data.timestamp.split(' ')[1]; 
-                document.getElementById('tel-time').innerText = timeOnly;
-
             } catch (error) { 
                 document.getElementById('tel-status').innerText = "LINK FAILED";
                 document.getElementById('tel-status').style.color = "#e74c3c";
             }
         }
-        
         fetchISS(); setInterval(fetchISS, 3000);
 
-        let squadMarkers = {};
-        let squadCircles = {};
+        let squadMarkers = {}; let squadCircles = {};
 
         if (!targetRoom) {
             controls.innerHTML = `
@@ -166,9 +151,7 @@
                     <button class="small-btn" onclick="toggleRadar()">📡 Sweep</button>
                     <button class="small-btn" onclick="focusISS()">🛰️ ISS Mode</button>
                 </div>
-                <div id="linkContainer" style="display:none;">
-                    <input type="text" id="shareLink" readonly onclick="this.select()">
-                </div>
+                <div id="linkContainer" style="display:none;"><input type="text" id="shareLink" readonly onclick="this.select()"></div>
             `;
             
             document.getElementById('generateBtn').onclick = () => {
@@ -225,10 +208,29 @@
 
                         onDisconnect(myRef).remove();
                         map.setView([position.coords.latitude, position.coords.longitude], 16);
-                    }, (error) => {}, { enableHighAccuracy: true });
+                    }, (error) => {
+                        statusText.innerText = "❌ GPS Signal Lost or Denied";
+                    }, { enableHighAccuracy: true });
+                } else {
+                    statusText.innerText = "❌ GPS Not Supported";
                 }
             };
         }
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Failed', err)); });
+        }
+        let deferredPrompt; const installBtn = document.getElementById('installBtn');
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; installBtn.style.display = 'block'; });
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt !== null) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') installBtn.style.display = 'none';
+                deferredPrompt = null;
+            }
+        });
     </script>
 </body>
 </html>
